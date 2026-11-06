@@ -8,10 +8,11 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
+from sklearn.tree import DecisionTreeClassifier
 
 from shopper_utils import (
     CATEGORICAL_COLS, MODEL_FILES, RATE_COLS, SKEWED_COLS, TARGET,
@@ -42,10 +43,15 @@ def build_preprocessor() -> ColumnTransformer:
     ])
 
 
-def build_models() -> dict:
+def build_models(cv) -> dict:
     # only ~15% of sessions end in a purchase, so balance classes where the model supports it
     return {
         "Logistic Regression": LogisticRegression(max_iter=2000, class_weight="balanced", random_state=SEED),
+        "Decision Tree": GridSearchCV(
+            DecisionTreeClassifier(class_weight="balanced", random_state=SEED),
+            {"max_depth": [4, 6, 8, 12, None], "min_samples_leaf": [1, 10, 30]},
+            scoring="f1", cv=cv, n_jobs=-1,
+        ),
     }
 
 
@@ -61,9 +67,15 @@ def main():
     X_test, y_test = clean_features(test_df), to_binary(test_df[TARGET])
 
     MODEL_DIR.mkdir(exist_ok=True)
-    for name, clf in build_models().items():
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
+    for name, clf in build_models(cv).items():
         pipe = Pipeline([("prep", build_preprocessor()), ("clf", clf)])
         pipe.fit(X_train, y_train)
+        if isinstance(clf, GridSearchCV):
+            print(f"{name} best params: {clf.best_params_}")
+            # store the refit best estimator, not the whole search object
+            pipe.steps[-1] = ("clf", clf.best_estimator_)
+
         y_pred = pipe.predict(X_test)
         y_score = pipe.predict_proba(X_test)[:, 1]
         metrics = compute_metrics(y_test, y_pred, y_score)
