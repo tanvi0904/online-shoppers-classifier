@@ -36,7 +36,7 @@ Five classifiers (Logistic Regression, Decision Tree, KNN, Gaussian Naive Bayes,
 online-shoppers-classifier/
 ├── app.py                  # Streamlit app
 ├── train_models.py         # trains + evaluates + saves all 5 models
-├── ML_Assignment2_2026AJ05031.ipynb  # notebook that runs training + checks
+├── ML_Assignment2_2026AJ05031.ipynb  # notebook that runs training + checks (saved with its BITS Lab outputs)
 ├── shopper_utils.py        # shared feature lists, cleaning, metrics
 ├── requirements.txt
 ├── README.md
@@ -60,7 +60,7 @@ python train_models.py      # recreates model/*.joblib and test_data.csv
 streamlit run app.py
 ```
 
-The saved models were trained with Python 3.13, scikit-learn 1.6.1 and numpy 2.4.6 (pinned in `requirements.txt`); the Streamlit Cloud app runs on Python 3.13 to match.
+The saved models were trained on the BITS Virtual Lab with Python 3.12, scikit-learn 1.6.1 and numpy 2.4.6 (pinned in `requirements.txt`); the Streamlit Cloud app runs on Python 3.12 to match.
 
 ## d. Models used and comparison
 
