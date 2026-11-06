@@ -4,21 +4,24 @@ Run:  python train_models.py
 """
 from pathlib import Path
 
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
-from sklearn.pipeline import make_pipeline
 
 from shopper_utils import (
-    CATEGORICAL_COLS, RATE_COLS, SKEWED_COLS, TARGET,
-    clean_features,
+    CATEGORICAL_COLS, MODEL_FILES, RATE_COLS, SKEWED_COLS, TARGET,
+    clean_features, compute_metrics, to_binary,
 )
 
 ROOT = Path(__file__).parent
 DATA_PATH = ROOT / "data" / "online_shoppers_intention.csv"
 DATA_URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/00468/online_shoppers_intention.csv"
+MODEL_DIR = ROOT / "model"
 SEED = 42
 
 
@@ -39,6 +42,13 @@ def build_preprocessor() -> ColumnTransformer:
     ])
 
 
+def build_models() -> dict:
+    # only ~15% of sessions end in a purchase, so balance classes where the model supports it
+    return {
+        "Logistic Regression": LogisticRegression(max_iter=2000, class_weight="balanced", random_state=SEED),
+    }
+
+
 def main():
     df = load_data().drop_duplicates()
     print(f"dataset: {df.shape[0]} rows x {df.shape[1] - 1} features")
@@ -47,8 +57,19 @@ def main():
     train_df, test_df = train_test_split(df, test_size=0.2, stratify=df[TARGET], random_state=SEED)
     test_df.to_csv(ROOT / "test_data.csv", index=False)
 
-    X_train = clean_features(train_df)
-    print("features after preprocessing:", build_preprocessor().fit_transform(X_train).shape[1])
+    X_train, y_train = clean_features(train_df), to_binary(train_df[TARGET])
+    X_test, y_test = clean_features(test_df), to_binary(test_df[TARGET])
+
+    MODEL_DIR.mkdir(exist_ok=True)
+    for name, clf in build_models().items():
+        pipe = Pipeline([("prep", build_preprocessor()), ("clf", clf)])
+        pipe.fit(X_train, y_train)
+        y_pred = pipe.predict(X_test)
+        y_score = pipe.predict_proba(X_test)[:, 1]
+        metrics = compute_metrics(y_test, y_pred, y_score)
+        print(name, {k: round(v, 4) for k, v in metrics.items()})
+        joblib.dump(pipe, MODEL_DIR / MODEL_FILES[name])
+        print(f"saved {name}")
 
 
 if __name__ == "__main__":
