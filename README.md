@@ -36,7 +36,7 @@ Five classifiers (Logistic Regression, Decision Tree, KNN, Gaussian Naive Bayes,
 online-shoppers-classifier/
 ├── app.py                  # Streamlit app
 ├── train_models.py         # trains + evaluates + saves all 5 models
-├── ML_Assignment2_Training.ipynb  # notebook that runs training + checks
+├── ML_Assignment2_2026AJ05031.ipynb  # notebook that runs training + checks
 ├── shopper_utils.py        # shared feature lists, cleaning, metrics
 ├── requirements.txt
 ├── README.md
