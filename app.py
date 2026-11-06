@@ -20,11 +20,13 @@ SAMPLE_TEST = ROOT / "test_data.csv"
 st.set_page_config(page_title="Will this shopper buy?", page_icon="🛒", layout="wide")
 
 
+# cached so each model is only loaded from disk once
 @st.cache_resource
 def load_model(name: str):
     return joblib.load(MODEL_DIR / MODEL_FILES[name])
 
 
+# only predicts, never fits, so uploaded data can't change a model
 def evaluate(name: str, X: pd.DataFrame, y):
     model = load_model(name)
     y_pred = model.predict(X)
@@ -60,21 +62,25 @@ st.write(
     "this app only loads them and scores the uploaded test data."
 )
 
+# nothing to show until a csv is uploaded
 if uploaded is None:
     st.info("👈 Upload a test CSV from the sidebar to get started (you can download the sample one there).")
     st.stop()
 
 df = pd.read_csv(uploaded)
+# stop with a clear message if any column is missing
 missing = [c for c in FEATURES + [TARGET] if c not in df.columns]
 if missing:
     st.error(f"Uploaded file is missing columns: {', '.join(missing)}")
     st.stop()
 
+# same cleaning as in training
 X, y = clean_features(df), to_binary(df[TARGET])
 st.success(f"Loaded {len(df):,} rows — {y.sum():,} purchases ({y.mean():.1%}).")
 
 tab_single, tab_compare, tab_data = st.tabs(["📊 Selected model", "🏁 Compare all models", "🔎 Data preview"])
 
+# tab 1: one model at a time
 with tab_single:
     y_pred, y_score, metrics = evaluate(model_name, X, y)
     st.subheader(f"{model_name} — evaluation on uploaded data")
@@ -89,9 +95,11 @@ with tab_single:
         report = classification_report(y, y_pred, target_names=["No purchase", "Purchase"], output_dict=True)
         st.dataframe(pd.DataFrame(report).T.round(3), use_container_width=True)
 
+    # uploaded rows plus the prediction and purchase probability
     out = df.assign(Predicted=y_pred.astype(bool), Purchase_Probability=y_score.round(4))
     st.download_button("Download predictions", out.to_csv(index=False), f"predictions_{MODEL_FILES[model_name][:-7]}.csv")
 
+# tab 2: all five models side by side
 with tab_compare:
     st.subheader("All five models on the same uploaded data")
     table = pd.DataFrame({name: evaluate(name, X, y)[2] for name in MODEL_FILES}).T
@@ -100,5 +108,6 @@ with tab_compare:
     best = table["MCC"].idxmax()
     st.markdown(f"Best by MCC (fairest single number for this imbalanced data): **{best}**")
 
+# tab 3: a look at the uploaded rows
 with tab_data:
     st.dataframe(df.head(50), use_container_width=True)

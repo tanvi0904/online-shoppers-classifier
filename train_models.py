@@ -32,6 +32,7 @@ NUMERIC_ONLY_MODELS = {"Naive Bayes"}  # one-hot columns are binary, not Gaussia
 
 
 def load_data() -> pd.DataFrame:
+    # download the dataset if the csv isn't in the repo
     if not DATA_PATH.exists():
         print(f"downloading dataset from {DATA_URL}")
         DATA_PATH.parent.mkdir(exist_ok=True)
@@ -40,6 +41,7 @@ def load_data() -> pd.DataFrame:
 
 
 def build_preprocessor(use_categoricals: bool = True) -> ColumnTransformer:
+    # every model gets the same preprocessing, inside its pipeline
     steps = [
         ("skewed", make_pipeline(FunctionTransformer(np.log1p), StandardScaler()), SKEWED_COLS),
         ("rates", StandardScaler(), RATE_COLS),
@@ -75,29 +77,36 @@ def build_models(cv) -> dict:
 
 
 def main():
+    # drop repeated sessions first so they can't end up in both train and test
     df = load_data().drop_duplicates()
     print(f"dataset: {df.shape[0]} rows x {df.shape[1] - 1} features")
     print("class balance:\n", df[TARGET].value_counts(normalize=True).round(3))
 
+    # stratify keeps the same share of buyers in train and test
     train_df, test_df = train_test_split(df, test_size=0.2, stratify=df[TARGET], random_state=SEED)
+    # saved for the app, the models never train on this
     test_df.to_csv(ROOT / "test_data.csv", index=False)
 
     X_train, y_train = clean_features(train_df), to_binary(train_df[TARGET])
     X_test, y_test = clean_features(test_df), to_binary(test_df[TARGET])
 
     MODEL_DIR.mkdir(exist_ok=True)
+    # stratified folds so each one keeps the ~15% buyers
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
     rows = []
     for name, clf in build_models(cv).items():
         prep = build_preprocessor(use_categoricals=name not in NUMERIC_ONLY_MODELS)
         pipe = Pipeline([("prep", prep), ("clf", clf)])
+        # fit on the training split only
         pipe.fit(X_train, y_train)
         if isinstance(clf, GridSearchCV):
             print(f"{name} best params: {clf.best_params_}")
             # store the refit best estimator, not the whole search object
             pipe.steps[-1] = ("clf", clf.best_estimator_)
 
+        # score on the held-out test split
         y_pred = pipe.predict(X_test)
+        # probability of purchase, used for AUC
         y_score = pipe.predict_proba(X_test)[:, 1]
         rows.append({"ML Model Name": name, **compute_metrics(y_test, y_pred, y_score)})
         joblib.dump(pipe, MODEL_DIR / MODEL_FILES[name])

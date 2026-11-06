@@ -20,6 +20,7 @@ CATEGORICAL_COLS = ["Month", "OperatingSystems", "Browser", "Region", "TrafficTy
 
 FEATURES = SKEWED_COLS + RATE_COLS + CATEGORICAL_COLS
 
+# model name -> the file it gets saved as in model/
 MODEL_FILES = {
     "Logistic Regression": "logistic_regression.joblib",
     "Decision Tree": "decision_tree.joblib",
@@ -36,13 +37,17 @@ def to_binary(series: pd.Series) -> np.ndarray:
 
 def clean_features(df: pd.DataFrame) -> pd.DataFrame:
     X = df[FEATURES].copy()
+    # Weekend can be True/False text, so turn it into 0/1
     X["Weekend"] = to_binary(X["Weekend"])
+    # as strings, so the one-hot encoder treats the codes as labels
     for col in CATEGORICAL_COLS:
         X[col] = X[col].astype(str)
     return X
 
 
 def compute_metrics(y_true, y_pred, y_score) -> dict:
+    # y_score = predicted probability of a purchase (AUC needs it)
+    # zero_division=0 so a model that never predicts a purchase doesn't crash
     return {
         "Accuracy": accuracy_score(y_true, y_pred),
         "AUC": roc_auc_score(y_true, y_score),
