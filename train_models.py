@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
@@ -50,6 +51,11 @@ def build_models(cv) -> dict:
         "Decision Tree": GridSearchCV(
             DecisionTreeClassifier(class_weight="balanced", random_state=SEED),
             {"max_depth": [4, 6, 8, 12, None], "min_samples_leaf": [1, 10, 30]},
+            scoring="f1", cv=cv, n_jobs=-1,
+        ),
+        "KNN": GridSearchCV(
+            KNeighborsClassifier(),
+            {"n_neighbors": [5, 11, 21, 31], "weights": ["uniform", "distance"]},
             scoring="f1", cv=cv, n_jobs=-1,
         ),
     }
