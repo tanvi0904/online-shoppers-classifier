@@ -28,6 +28,7 @@ DATA_PATH = ROOT / "data" / "online_shoppers_intention.csv"
 DATA_URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/00468/online_shoppers_intention.csv"
 MODEL_DIR = ROOT / "model"
 SEED = 42
+NUMERIC_ONLY_MODELS = {"Naive Bayes"}  # one-hot columns are binary, not Gaussian
 
 
 def load_data() -> pd.DataFrame:
@@ -38,13 +39,14 @@ def load_data() -> pd.DataFrame:
     return pd.read_csv(DATA_PATH)
 
 
-def build_preprocessor() -> ColumnTransformer:
-    return ColumnTransformer([
+def build_preprocessor(use_categoricals: bool = True) -> ColumnTransformer:
+    steps = [
         ("skewed", make_pipeline(FunctionTransformer(np.log1p), StandardScaler()), SKEWED_COLS),
         ("rates", StandardScaler(), RATE_COLS),
-        # dense output so GaussianNB can use it too
-        ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), CATEGORICAL_COLS),
-    ])
+    ]
+    if use_categoricals:
+        steps.append(("cat", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL_COLS))
+    return ColumnTransformer(steps)
 
 
 def build_models(cv) -> dict:
@@ -61,7 +63,13 @@ def build_models(cv) -> dict:
             {"n_neighbors": [5, 11, 21, 31], "weights": ["uniform", "distance"]},
             scoring="f1", cv=cv, n_jobs=-1,
         ),
-        "Naive Bayes": GaussianNB(),
+        # GaussianNB assumes continuous, bell-shaped features, so it is trained on the
+        # numeric columns only (see NUMERIC_ONLY_MODELS) and var_smoothing is tuned
+        "Naive Bayes": GridSearchCV(
+            GaussianNB(),
+            {"var_smoothing": [1e-9, 1e-3, 1e-1, 1.0]},
+            scoring="f1", cv=cv, n_jobs=-1,
+        ),
         "Support Vector Machine": SVC(kernel="rbf", C=1.0, class_weight="balanced", probability=True, random_state=SEED),
     }
 
@@ -81,7 +89,8 @@ def main():
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
     rows = []
     for name, clf in build_models(cv).items():
-        pipe = Pipeline([("prep", build_preprocessor()), ("clf", clf)])
+        prep = build_preprocessor(use_categoricals=name not in NUMERIC_ONLY_MODELS)
+        pipe = Pipeline([("prep", prep), ("clf", clf)])
         pipe.fit(X_train, y_train)
         if isinstance(clf, GridSearchCV):
             print(f"{name} best params: {clf.best_params_}")
