@@ -1,6 +1,7 @@
 """Train the 5 classifiers on the UCI Online Shoppers Purchasing Intention dataset.
 
 Run:  python train_models.py
+Outputs: model/*.joblib, model/metrics.csv, model/metrics.md, test_data.csv
 """
 from pathlib import Path
 
@@ -78,6 +79,7 @@ def main():
 
     MODEL_DIR.mkdir(exist_ok=True)
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
+    rows = []
     for name, clf in build_models(cv).items():
         pipe = Pipeline([("prep", build_preprocessor()), ("clf", clf)])
         pipe.fit(X_train, y_train)
@@ -88,10 +90,17 @@ def main():
 
         y_pred = pipe.predict(X_test)
         y_score = pipe.predict_proba(X_test)[:, 1]
-        metrics = compute_metrics(y_test, y_pred, y_score)
-        print(name, {k: round(v, 4) for k, v in metrics.items()})
+        rows.append({"ML Model Name": name, **compute_metrics(y_test, y_pred, y_score)})
         joblib.dump(pipe, MODEL_DIR / MODEL_FILES[name])
         print(f"saved {name}")
+
+    results = pd.DataFrame(rows).round(4)
+    results.to_csv(MODEL_DIR / "metrics.csv", index=False)
+    # README-ready table, built by hand to avoid needing tabulate
+    header = "| " + " | ".join(results.columns) + " |\n|" + "---|" * len(results.columns) + "\n"
+    body = "".join("| " + " | ".join(str(v) for v in row) + " |\n" for row in results.itertuples(index=False))
+    (MODEL_DIR / "metrics.md").write_text(header + body)
+    print("\n", results.to_string(index=False))
 
 
 if __name__ == "__main__":
