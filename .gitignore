@@ -17,4 +17,4 @@ Thumbs.db
 .idea/
 
 # scratch outputs from the notebook (the files we want are committed individually)
-colab_outputs.zip
+training_outputs.zip
