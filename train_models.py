@@ -14,6 +14,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
+from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
 from shopper_utils import (
@@ -60,6 +61,7 @@ def build_models(cv) -> dict:
             scoring="f1", cv=cv, n_jobs=-1,
         ),
         "Naive Bayes": GaussianNB(),
+        "Support Vector Machine": SVC(kernel="rbf", C=1.0, class_weight="balanced", probability=True, random_state=SEED),
     }
 
 
