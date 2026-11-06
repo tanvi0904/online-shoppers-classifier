@@ -1,6 +1,9 @@
 """Shared bits for training and the Streamlit app: column lists, target parsing, metrics."""
 import numpy as np
 import pandas as pd
+from sklearn.metrics import (
+    accuracy_score, roc_auc_score, precision_score, recall_score, f1_score, matthews_corrcoef,
+)
 
 TARGET = "Revenue"
 
@@ -17,6 +20,15 @@ CATEGORICAL_COLS = ["Month", "OperatingSystems", "Browser", "Region", "TrafficTy
 
 FEATURES = SKEWED_COLS + RATE_COLS + CATEGORICAL_COLS
 
+MODEL_FILES = {
+    "Logistic Regression": "logistic_regression.joblib",
+    "Decision Tree": "decision_tree.joblib",
+    "KNN": "knn.joblib",
+    "Naive Bayes": "naive_bayes.joblib",
+    "Support Vector Machine": "svm.joblib",
+}
+
+
 def to_binary(series: pd.Series) -> np.ndarray:
     """Revenue/Weekend come as True/False, 'TRUE'/'FALSE' or 1/0 depending on who saved the CSV."""
     return series.astype(str).str.strip().str.lower().isin(["true", "1", "yes"]).astype(int).to_numpy()
@@ -28,3 +40,14 @@ def clean_features(df: pd.DataFrame) -> pd.DataFrame:
     for col in CATEGORICAL_COLS:
         X[col] = X[col].astype(str)
     return X
+
+
+def compute_metrics(y_true, y_pred, y_score) -> dict:
+    return {
+        "Accuracy": accuracy_score(y_true, y_pred),
+        "AUC": roc_auc_score(y_true, y_score),
+        "Precision": precision_score(y_true, y_pred, zero_division=0),
+        "Recall": recall_score(y_true, y_pred, zero_division=0),
+        "F1": f1_score(y_true, y_pred, zero_division=0),
+        "MCC": matthews_corrcoef(y_true, y_pred),
+    }
