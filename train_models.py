@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
+from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline, make_pipeline
@@ -58,6 +59,7 @@ def build_models(cv) -> dict:
             {"n_neighbors": [5, 11, 21, 31], "weights": ["uniform", "distance"]},
             scoring="f1", cv=cv, n_jobs=-1,
         ),
+        "Naive Bayes": GaussianNB(),
     }
 
 
